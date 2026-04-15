@@ -1,0 +1,350 @@
+<ui:FluentWindow
+    x:Class="RdpShadow.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:conv="clr-namespace:RdpShadow.Converters"
+    Title="RDP Shadow"
+    Width="580" Height="440"
+    MinWidth="480" MinHeight="360"
+    WindowStartupLocation="CenterScreen"
+    WindowBackdropType="Acrylic"
+    ExtendsContentIntoTitleBar="True"
+    ResizeMode="CanResize"
+    Background="Transparent">
+
+    <ui:FluentWindow.Resources>
+        <conv:StateToColorConverter x:Key="StateToColor" />
+
+        <!-- Column header style -->
+        <Style x:Key="ColHeaderStyle" TargetType="GridViewColumnHeader">
+            <Setter Property="Background"     Value="Transparent" />
+            <Setter Property="BorderBrush"    Value="Transparent" />
+            <Setter Property="Foreground"     Value="{DynamicResource TextFillColorTertiaryBrush}" />
+            <Setter Property="FontSize"       Value="10.5" />
+            <Setter Property="FontWeight"     Value="SemiBold" />
+            <Setter Property="Padding"        Value="0,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border Background="Transparent" Padding="0,0,8,0">
+                            <TextBlock
+                                Text="{TemplateBinding Content}"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                FontSize="10.5"
+                                FontWeight="SemiBold"
+                                VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Row container style — left accent border on selection -->
+        <Style x:Key="SessionRowStyle" TargetType="ListViewItem">
+            <Setter Property="Height"              Value="36" />
+            <Setter Property="Padding"             Value="0" />
+            <Setter Property="Margin"              Value="0" />
+            <Setter Property="BorderThickness"     Value="2,0,0,0" />
+            <Setter Property="BorderBrush"         Value="Transparent" />
+            <Setter Property="Background"          Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FontFamily"          Value="Segoe UI Variable Text, Segoe UI" />
+            <Setter Property="FontSize"            Value="13" />
+            <Setter Property="Cursor"              Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="12,0,0,0"
+                                SnapsToDevicePixels="True">
+                            <GridViewRowPresenter
+                                Content="{TemplateBinding Content}"
+                                Columns="{Binding Path=View.Columns,
+                                    RelativeSource={RelativeSource AncestorType=ListView}}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource SystemAccentColorLight2}" />
+                                <Setter TargetName="Bd" Property="BorderBrush"
+                                        Value="{DynamicResource SystemAccentColorBrush}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected"   Value="True" />
+                                    <Condition Property="IsMouseOver"  Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource SystemAccentColorLight2}" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />   <!-- TitleBar          -->
+            <RowDefinition Height="Auto" />   <!-- Server input row  -->
+            <RowDefinition Height="*"    />   <!-- Session list      -->
+            <RowDefinition Height="Auto" />   <!-- Status strip      -->
+            <RowDefinition Height="Auto" />   <!-- Action bar        -->
+        </Grid.RowDefinitions>
+
+        <!-- ══════════════════════════════════════════
+             ROW 0 — Custom Title Bar
+             ══════════════════════════════════════════ -->
+        <ui:TitleBar
+            Grid.Row="0"
+            Title="RDP Shadow"
+            ShowMinimize="True"
+            ShowMaximize="False"
+            ShowClose="True" />
+
+        <!-- ══════════════════════════════════════════
+             ROW 1 — Server Input Strip
+             ══════════════════════════════════════════ -->
+        <Border Grid.Row="1"
+                Padding="14,8,14,8"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*"    />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="Server"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                <ui:TextBox
+                    Grid.Column="1"
+                    x:Name="TxtServer"
+                    PlaceholderText="hostname or IP — blank for localhost"
+                    FontFamily="Segoe UI Variable Text, Segoe UI"
+                    FontSize="13"
+                    KeyDown="TxtServer_KeyDown" />
+
+                <ui:Button
+                    Grid.Column="2"
+                    x:Name="BtnRefresh"
+                    Margin="8,0,0,0"
+                    Content="Refresh"
+                    Appearance="Secondary"
+                    Icon="{ui:SymbolIcon Symbol=ArrowSync20}"
+                    Click="BtnRefresh_Click" />
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════
+             ROW 2 — Session List
+             ══════════════════════════════════════════ -->
+        <ListView
+            Grid.Row="2"
+            x:Name="LvSessions"
+            Margin="0"
+            Padding="0"
+            BorderThickness="0"
+            Background="Transparent"
+            FontFamily="Segoe UI Variable Text, Segoe UI"
+            FontSize="13"
+            SelectionMode="Single"
+            ItemContainerStyle="{StaticResource SessionRowStyle}"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            VirtualizingPanel.IsVirtualizing="True"
+            VirtualizingPanel.VirtualizationMode="Recycling"
+            SelectionChanged="LvSessions_SelectionChanged">
+
+            <ListView.View>
+                <GridView ColumnHeaderContainerStyle="{StaticResource ColHeaderStyle}">
+
+                    <!-- Session Name -->
+                    <GridViewColumn Header="Session" Width="130">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Text="{Binding SessionName}"
+                                    FontFamily="Cascadia Code, Cascadia Mono, Consolas"
+                                    FontSize="11.5"
+                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                    TextTrimming="CharacterEllipsis"
+                                    VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- Username -->
+                    <GridViewColumn Header="Username" Width="175">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Text="{Binding DisplayUsername}"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                    TextTrimming="CharacterEllipsis"
+                                    VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- ID -->
+                    <GridViewColumn Header="ID" Width="46">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Text="{Binding Id}"
+                                    FontSize="12"
+                                    HorizontalAlignment="Center"
+                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                    VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <!-- State (dot + text) -->
+                    <GridViewColumn Header="State" Width="108">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse
+                                        Width="6" Height="6"
+                                        Margin="0,0,7,0"
+                                        VerticalAlignment="Center"
+                                        Fill="{Binding State, Converter={StaticResource StateToColor}}" />
+                                    <TextBlock
+                                        Text="{Binding State}"
+                                        FontSize="12"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                </GridView>
+            </ListView.View>
+
+            <!-- Empty-state placeholder via DataTrigger -->
+            <ListView.Style>
+                <Style TargetType="ListView">
+                    <Style.Triggers>
+                        <DataTrigger
+                            Binding="{Binding Items.Count, RelativeSource={RelativeSource Self}}"
+                            Value="0">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate>
+                                        <Border Background="Transparent">
+                                            <TextBlock
+                                                Text="Enter a server above and press Refresh"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontSize="12"
+                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.Style>
+        </ListView>
+
+        <!-- ══════════════════════════════════════════
+             ROW 3 — Status Strip
+             ══════════════════════════════════════════ -->
+        <Border Grid.Row="3"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                Padding="14,3,14,4">
+            <StackPanel>
+                <!-- 2 px indeterminate progress bar — hidden at rest -->
+                <ProgressBar
+                    x:Name="PbLoading"
+                    IsIndeterminate="True"
+                    Height="2"
+                    Margin="0,0,0,3"
+                    Visibility="Collapsed" />
+
+                <TextBlock
+                    x:Name="TxtStatus"
+                    Text="Ready"
+                    FontSize="11"
+                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- ══════════════════════════════════════════
+             ROW 4 — Action Bar
+             ══════════════════════════════════════════ -->
+        <Border Grid.Row="4"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                Padding="14,8,14,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"    />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Session count -->
+                <TextBlock
+                    Grid.Column="0"
+                    x:Name="TxtCount"
+                    FontSize="11.5"
+                    VerticalAlignment="Center"
+                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+
+                <!-- Control toggle -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <TextBlock
+                        Text="Control"
+                        FontSize="12"
+                        VerticalAlignment="Center"
+                        Margin="0,0,8,0"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:ToggleSwitch
+                        x:Name="ChkControl"
+                        IsChecked="False"
+                        VerticalAlignment="Center"
+                        ToolTip="Assume full keyboard and mouse control (/control flag)" />
+                </StackPanel>
+
+                <!-- Shadow button -->
+                <ui:Button
+                    Grid.Column="2"
+                    x:Name="BtnShadow"
+                    Content="Shadow Session"
+                    Icon="{ui:SymbolIcon Symbol=DesktopArrowRight20}"
+                    Appearance="Primary"
+                    FontSize="13"
+                    Padding="16,6"
+                    IsEnabled="False"
+                    Click="BtnShadow_Click" />
+            </Grid>
+        </Border>
+
+    </Grid>
+</ui:FluentWindow>

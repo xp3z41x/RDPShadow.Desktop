@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDP Shadow v2.0 — Design Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Design Tokens ─── */
+    :root {
+      --accent:            #0078D4;
+      --accent-hover:      #1484d8;
+      --accent-glow:       rgba(0, 120, 212, 0.35);
+      --dot-active:        #00CC6A;
+      --dot-disconnected:  #FF8C00;
+      --dot-idle:          #666;
+
+      /* Dark tokens */
+      --bg-window:         rgba(24, 24, 26, 0.78);
+      --bg-titlebar:       rgba(16, 16, 18, 0.55);
+      --bg-header:         rgba(14, 14, 16, 0.45);
+      --bg-row-alt:        rgba(255,255,255,0.022);
+      --bg-row-hover:      rgba(255,255,255,0.052);
+      --bg-row-selected:   rgba(0,120,212,0.18);
+      --bg-input:          rgba(255,255,255,0.065);
+      --bg-btn-sec:        rgba(255,255,255,0.075);
+      --bg-btn-sec-hover:  rgba(255,255,255,0.13);
+
+      --border-window:     rgba(255,255,255,0.115);
+      --border-sep:        rgba(255,255,255,0.07);
+      --border-ctrl:       rgba(255,255,255,0.14);
+
+      --text-primary:      rgba(255,255,255,0.94);
+      --text-secondary:    rgba(255,255,255,0.55);
+      --text-tertiary:     rgba(255,255,255,0.30);
+
+      --radius:            8px;
+      --radius-sm:         4px;
+      --font:              "Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,sans-serif;
+      --font-mono:         "Cascadia Code","Cascadia Mono","Consolas",monospace;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-window:       rgba(242,242,244,0.80);
+        --bg-titlebar:     rgba(228,228,232,0.60);
+        --bg-header:       rgba(220,220,225,0.55);
+        --bg-row-alt:      rgba(0,0,0,0.018);
+        --bg-row-hover:    rgba(0,0,0,0.04);
+        --bg-row-selected: rgba(0,120,212,0.10);
+        --bg-input:        rgba(0,0,0,0.045);
+        --bg-btn-sec:      rgba(0,0,0,0.055);
+        --bg-btn-sec-hover:rgba(0,0,0,0.10);
+        --border-window:   rgba(0,0,0,0.12);
+        --border-sep:      rgba(0,0,0,0.07);
+        --border-ctrl:     rgba(0,0,0,0.14);
+        --text-primary:    rgba(0,0,0,0.90);
+        --text-secondary:  rgba(0,0,0,0.55);
+        --text-tertiary:   rgba(0,0,0,0.32);
+        --dot-idle:        #aaa;
+      }
+    }
+
+    /* ─── Desktop (wallpaper sim) ─── */
+    body {
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse 90% 70% at 10% 30%, rgba(0,72,160,0.60) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 55% at 88% 18%, rgba(55,0,110,0.38) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 80% at 65% 90%, rgba(0,85,65,0.26) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 45% at 50% 55%, rgba(0,28,55,0.45) 0%, transparent 70%),
+        linear-gradient(160deg, #08101c 0%, #101825 45%, #0b1017 100%);
+      overflow: hidden;
+    }
+
+    /* desktop icons (decorative) */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle 1px at 15% 20%, rgba(255,255,255,0.06) 0%, transparent 1px),
+        radial-gradient(circle 1px at 82% 65%, rgba(255,255,255,0.04) 0%, transparent 1px),
+        radial-gradient(circle 1px at 45% 80%, rgba(255,255,255,0.05) 0%, transparent 1px);
+      pointer-events: none;
+    }
+
+    /* ─── Window Shell ─── */
+    .window {
+      width: 580px;
+      height: 440px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+
+      background: var(--bg-window);
+      backdrop-filter: blur(64px) saturate(200%) brightness(1.08);
+      -webkit-backdrop-filter: blur(64px) saturate(200%) brightness(1.08);
+
+      border: 1px solid var(--border-window);
+      box-shadow:
+        0 52px 80px rgba(0,0,0,0.72),
+        0 18px 36px rgba(0,0,0,0.50),
+        0 6px 12px  rgba(0,0,0,0.30),
+        inset 0 1px 0 rgba(255,255,255,0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.18);
+    }
+
+    /* Grain overlay — makes acrylic feel authentic */
+    .window::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 200;
+      pointer-events: none;
+      border-radius: inherit;
+      opacity: 0.45;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    /* ─── Title Bar ─── */
+    .titlebar {
+      height: 32px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      padding: 0 0 0 11px;
+      background: var(--bg-titlebar);
+      border-bottom: 1px solid var(--border-sep);
+      position: relative;
+      z-index: 10;
+      cursor: default;
+      user-select: none;
+    }
+
+    .titlebar-icon {
+      width: 16px; height: 16px;
+      margin-right: 7px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .titlebar-title {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+      flex: 1;
+    }
+
+    .titlebar-controls {
+      display: flex;
+      align-items: stretch;
+      height: 100%;
+    }
+
+    .tb-btn {
+      width: 46px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background 0.12s, color 0.12s;
+    }
+    .tb-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .tb-btn.close:hover { background: #C42B1C; color: #fff; }
+    .tb-btn svg { width: 10px; height: 10px; }
+
+    /* ─── Server Row ─── */
+    .server-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-sep);
+      flex-shrink: 0;
+    }
+
+    .server-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 42px;
+      letter-spacing: 0.01em;
+    }
+
+    .server-input {
+      flex: 1;
+      height: 28px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-ctrl);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      font-family: var(--font);
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .server-input::placeholder { color: var(--text-tertiary); }
+    .server-input:focus {
+      background: rgba(255,255,255,0.09);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 2px 8px var(--accent-glow);
+    }
+
+    .btn-refresh {
+      height: 28px;
+      padding: 0 11px;
+      display: flex; align-items: center; gap: 5px;
+      background: var(--bg-btn-sec);
+      border: 1px solid var(--border-ctrl);
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-refresh:hover { background: var(--bg-btn-sec-hover); }
+    .btn-refresh svg { width: 12px; height: 12px; color: var(--text-secondary); }
+
+    /* ─── Session List ─── */
+    .list-wrap {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+    }
+    .list-wrap::-webkit-scrollbar { width: 6px; }
+    .list-wrap::-webkit-scrollbar-track { background: transparent; }
+    .list-wrap::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.14);
+      border-radius: 3px;
+    }
+    .list-wrap::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); }
+
+    .list-cols { grid-template-columns: 1.05fr 1.5fr 46px 108px; }
+
+    .list-header {
+      display: grid;
+      padding: 0 14px;
+      height: 26px;
+      align-items: center;
+      border-bottom: 1px solid var(--border-sep);
+      position: sticky; top: 0;
+      background: var(--bg-header);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 5;
+    }
+
+    .th {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .th.center { text-align: center; }
+
+    .row {
+      display: grid;
+      padding: 0 0 0 12px;
+      height: 36px;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      border-left: 2px solid transparent;
+      transition: background 0.08s;
+    }
+    .row:nth-child(even) { background: var(--bg-row-alt); }
+    .row:hover { background: var(--bg-row-hover); }
+    .row.selected {
+      background: var(--bg-row-selected);
+      border-left-color: var(--accent);
+    }
+    .row.selected:hover { background: rgba(0,120,212,0.23); }
+
+    .cell {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding-right: 10px;
+    }
+
+    .c-session {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      letter-spacing: -0.02em;
+    }
+
+    .c-user {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .c-user.none {
+      font-weight: 400;
+      color: var(--text-tertiary);
+      font-style: italic;
+    }
+
+    .c-id {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-align: center;
+      padding-right: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .c-state {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.active       { background: var(--dot-active);       box-shadow: 0 0 6px rgba(0,204,106,0.65); }
+    .dot.disconnected { background: var(--dot-disconnected); box-shadow: 0 0 6px rgba(255,140,0,0.55); }
+    .dot.idle         { background: var(--dot-idle); }
+
+    /* ─── Status Strip ─── */
+    .status-strip {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border-sep);
+      padding: 0 14px 5px;
+    }
+
+    .progress-track {
+      height: 2px;
+      background: transparent;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .progress-track.loading {
+      background: rgba(255,255,255,0.07);
+      margin-top: 3px;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 28%;
+      background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
+      border-radius: 1px;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .progress-track:not(.loading) .progress-fill { display: none; }
+    .progress-track:not(.loading) { height: 0; margin: 0; }
+
+    @keyframes shimmer {
+      0%   { transform: translateX(-250%); }
+      100% { transform: translateX(700%); }
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: block;
+      padding-top: 4px;
+    }
+
+    /* ─── Action Bar ─── */
+    .action-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px 10px;
+      border-top: 1px solid var(--border-sep);
+    }
+
+    .count-badge {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      flex: 1;
+    }
+    .count-badge strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* Toggle */
+    .toggle-wrap {
+      display: flex; align-items: center; gap: 7px;
+      flex-shrink: 0;
+    }
+    .toggle-lbl {
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle {
+      position: relative;
+      width: 40px; height: 20px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .track {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.14);
+      border: 1.5px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .toggle input:checked + .track { background: var(--accent); border-color: var(--accent); }
+    .thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .thumb { transform: translateX(20px); }
+
+    /* Primary button */
+    .btn-shadow {
+      height: 32px;
+      padding: 0 15px;
+      display: flex; align-items: center; gap: 7px;
+      background: var(--accent);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: 0.005em;
+      box-shadow:
+        0 1px 2px rgba(0,0,0,0.28),
+        0 0 0 1px rgba(0,120,212,0.45),
+        0 4px 14px var(--accent-glow);
+      transition: background 0.1s, box-shadow 0.1s, transform 0.08s;
+    }
+    .btn-shadow:hover {
+      background: var(--accent-hover);
+      box-shadow:
+        0 2px 4px rgba(0,0,0,0.36),
+        0 0 0 1px rgba(0,120,212,0.55),
+        0 6px 20px rgba(0,120,212,0.45);
+    }
+    .btn-shadow:active { transform: translateY(1px); }
+    .btn-shadow svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    .btn-shadow.disabled {
+      background: var(--bg-btn-sec);
+      border-color: var(--border-ctrl);
+      color: var(--text-tertiary);
+      box-shadow: none;
+      cursor: default;
+    }
+
+    /* ─── Resize grip ─── */
+    .resize-grip {
+      position: absolute;
+      bottom: 3px; right: 3px;
+      width: 14px; height: 14px;
+      pointer-events: none;
+      z-index: 201;
+      opacity: 0.22;
+    }
+    .resize-grip svg { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="window">
+
+  <!-- ─── Title Bar ─── -->
+  <div class="titlebar">
+    <div class="titlebar-icon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.15" fill="none"/>
+        <line x1="5.5" y1="13" x2="10.5" y2="13" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="8" y1="11" x2="8" y2="13" stroke="rgba(255,255,255,0.4)" stroke-width="1.2"/>
+        <!-- arrow pointing right -->
+        <path d="M6.5 5.8l2.2 0.7-2.2 0.7V5.8z" fill="#60ABFF"/>
+        <path d="M8.7 6.5h2.8" stroke="#60ABFF" stroke-width="1.15" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="titlebar-title">RDP Shadow</span>
+    <div class="titlebar-controls">
+      <button class="tb-btn" title="Minimize">
+        <svg viewBox="0 0 10 2" fill="none"><path d="M0.5 1h9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="tb-btn close" title="Close">
+        <svg viewBox="0 0 10 10" fill="none">
+          <path d="M1 1 9 9M9 1 1 9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Server Row ─── -->
+  <div class="server-row">
+    <span class="server-label">Server</span>
+    <input class="server-input" type="text" value="CONTOSO-DC01" placeholder="hostname or IP — blank for localhost">
+    <button class="btn-refresh">
+      <svg viewBox="0 0 12 12" fill="none">
+        <path d="M10.5 6A4.5 4.5 0 1 1 8.3 2.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        <path d="M8 1.2l.3 1L9.6 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- ─── Session List ─── -->
+  <div class="list-wrap">
+    <div class="list-header list-cols">
+      <div class="th">Session</div>
+      <div class="th">Username</div>
+      <div class="th center">ID</div>
+      <div class="th">State</div>
+    </div>
+
+    <div class="row list-cols">
+      <div class="cell c-session">console</div>
+      <div class="cell c-user">CONTOSO\Administrator</div>
+      <div class="cell c-id">1</div>
+      <div class="cell c-state"><span class="dot active"></span>Active</div>
+    </div>
+
+    <div class="row list-cols selected">
+      <div class="cell c-session">rdp-tcp#5</div>
+      <div class="cell c-user">CONTOSO\jsmith</div>
+      <div class="cell c-id">2</div>
+      <div class="cell c-state"><span class="dot active"></span>Active</div>
+    </div>
+
+    <div class="row list-cols">
+      <div class="cell c-session">rdp-tcp#12</div>
+      <div class="cell c-user">CONTOSO\ajonez</div>
+      <div class="cell c-id">3</div>
+      <div class="cell c-state"><span class="dot active"></span>Active</div>
+    </div>
+
+    <div class="row list-cols">
+      <div class="cell c-session">rdp-tcp#8</div>
+      <div class="cell c-user">CONTOSO\bwilson</div>
+      <div class="cell c-id">4</div>
+      <div class="cell c-state"><span class="dot disconnected"></span>Disconnected</div>
+    </div>
+
+    <div class="row list-cols">
+      <div class="cell c-session">services</div>
+      <div class="cell c-user none">—</div>
+      <div class="cell c-id">0</div>
+      <div class="cell c-state"><span class="dot idle"></span>Listen</div>
+    </div>
+  </div>
+
+  <!-- ─── Status Strip ─── -->
+  <div class="status-strip">
+    <div class="progress-track">
+      <div class="progress-fill"></div>
+    </div>
+    <span class="status-text">5 sessions loaded · CONTOSO-DC01</span>
+  </div>
+
+  <!-- ─── Action Bar ─── -->
+  <div class="action-bar">
+    <span class="count-badge"><strong>5</strong> sessions on CONTOSO-DC01</span>
+
+    <div class="toggle-wrap">
+      <span class="toggle-lbl" id="ctrl-lbl">Control</span>
+      <label class="toggle" aria-labelledby="ctrl-lbl">
+        <input type="checkbox" id="ctrl-chk">
+        <div class="track"></div>
+        <div class="thumb"></div>
+      </label>
+    </div>
+
+    <button class="btn-shadow">
+      <svg viewBox="0 0 13 13" fill="none">
+        <rect x="0.75" y="1.5" width="9" height="6.5" rx="1" stroke="white" stroke-width="1.15" fill="none"/>
+        <line x1="4.5" y1="10" x2="7" y2="10" stroke="white" stroke-width="1.15" stroke-linecap="round"/>
+        <line x1="5.75" y1="8" x2="5.75" y2="10" stroke="white" stroke-width="1.15"/>
+        <path d="M9.5 5.5l3-1.75v3.5L9.5 5.5z" fill="white"/>
+      </svg>
+      Shadow Session
+    </button>
+  </div>
+
+  <!-- Resize grip -->
+  <div class="resize-grip">
+    <svg viewBox="0 0 14 14" fill="none">
+      <line x1="13" y1="5"  x2="5"  y2="13" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="13" y1="9"  x2="9"  y2="13" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+  // Make toggle interactive
+  document.getElementById('ctrl-chk').addEventListener('change', function() {
+    const btn = document.querySelector('.btn-shadow');
+    // no-op for mockup – just visual feedback via CSS
+  });
+
+  // Make rows clickable
+  document.querySelectorAll('.row').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.row').forEach(r => r.classList.remove('selected'));
+      row.classList.add('selected');
+    });
+  });
+</script>
+
+</body>
+</html>
