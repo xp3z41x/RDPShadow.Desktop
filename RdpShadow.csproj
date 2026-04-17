@@ -37,4 +37,9 @@
   <ItemGroup>
     <PackageReference Include="Wpf-Ui" Version="3.0.5" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Expose icon.ico as a WPF resource so XAML can pack://-reference it -->
+    <Resource Include="icon.ico" />
+  </ItemGroup>
 </Project>
