@@ -13,6 +13,15 @@
     ResizeMode="CanResize"
     Background="Transparent">
 
+    <!-- F5 refreshes from anywhere in the window -->
+    <ui:FluentWindow.InputBindings>
+        <KeyBinding Key="F5" Command="ApplicationCommands.Find" />
+    </ui:FluentWindow.InputBindings>
+    <ui:FluentWindow.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Find"
+                        Executed="RefreshShortcut_Executed" />
+    </ui:FluentWindow.CommandBindings>
+
     <ui:FluentWindow.Resources>
         <conv:StateToColorConverter x:Key="StateToColor" />
 
@@ -110,7 +119,11 @@
             Title="RDP Shadow"
             ShowMinimize="True"
             ShowMaximize="False"
-            ShowClose="True" />
+            ShowClose="True">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/icon.ico" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <!-- ══════════════════════════════════════════
              ROW 1 — Server Input Strip
@@ -169,7 +182,8 @@
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             VirtualizingPanel.IsVirtualizing="True"
             VirtualizingPanel.VirtualizationMode="Recycling"
-            SelectionChanged="LvSessions_SelectionChanged">
+            SelectionChanged="LvSessions_SelectionChanged"
+            MouseDoubleClick="LvSessions_MouseDoubleClick">
 
             <ListView.View>
                 <GridView ColumnHeaderContainerStyle="{StaticResource ColHeaderStyle}">
@@ -241,32 +255,32 @@
                 </GridView>
             </ListView.View>
 
-            <!-- Empty-state placeholder via DataTrigger -->
-            <ListView.Style>
-                <Style TargetType="ListView">
+        </ListView>
+
+        <!-- Empty-state overlay: sits on top of ListView, visible only when empty.
+             Keeps the GridView headers visible so the user knows the query ran. -->
+        <TextBlock
+            Grid.Row="2"
+            IsHitTestVisible="False"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Margin="0,40,0,0"
+            FontSize="12"
+            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+            Text="Enter a server above and press Refresh">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
                         <DataTrigger
-                            Binding="{Binding Items.Count, RelativeSource={RelativeSource Self}}"
+                            Binding="{Binding Items.Count, ElementName=LvSessions}"
                             Value="0">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate>
-                                        <Border Background="Transparent">
-                                            <TextBlock
-                                                Text="Enter a server above and press Refresh"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                FontSize="12"
-                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
+                            <Setter Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
-            </ListView.Style>
-        </ListView>
+            </TextBlock.Style>
+        </TextBlock>
 
         <!-- ══════════════════════════════════════════
              ROW 3 — Status Strip
@@ -288,6 +302,8 @@
                     x:Name="TxtStatus"
                     Text="Ready"
                     FontSize="11"
+                    TextTrimming="CharacterEllipsis"
+                    ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
                     Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
             </StackPanel>
         </Border>

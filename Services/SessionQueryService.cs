@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using RdpShadow.Models;
 
@@ -10,15 +11,54 @@ public static class SessionQueryService
 {
     // Groups: [1]=SessionName  [2]=Username  [3]=ID  [4]=State
     private static readonly Regex SessionRegex =
-        new(@"^\s*(\S+)\s+(\S*)\s+(\d+)\s+(\S+)", RegexOptions.Compiled);
+        new(@"^\s*(\S+)\s+(\S*)\s+(\d+)\s+(\S+)",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    // RFC-1123-ish hostname or IPv4/IPv6 literal. Rejects shell metacharacters
+    // so user input can't break out of the /server: argument.
+    private static readonly Regex HostnameRegex =
+        new(@"^[A-Za-z0-9]([A-Za-z0-9\-._:]*[A-Za-z0-9])?$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    // State prefixes that mean "not a real user session" — the rdp-tcp listener
+    // and equivalents. Localized across common Windows display languages.
+    private static readonly string[] NonUserStatePrefixes =
+    {
+        "LISTEN",  // en
+        "ESCUTA",  // pt-BR (Escuta / Escutar)
+        "ESCUCH",  // es (Escucha)
+        "ÉCOUTE",  // fr
+        "LAUSCH",  // de (Lauschen)
+        "LYSSN",   // sv (Lyssnar)
+        "ПРОСЛ",   // ru (Прослушивание)
+    };
 
     private static bool IsLocal(string server) =>
         string.IsNullOrWhiteSpace(server) ||
         server.Equals("localhost",  StringComparison.OrdinalIgnoreCase) ||
         server == "127.0.0.1";
 
-    public static async Task<List<SessionInfo>> QueryAsync(string server)
+    /// <summary>Validate a hostname / IP against the strict allowlist.</summary>
+    public static bool IsValidHost(string host) =>
+        string.IsNullOrWhiteSpace(host) || HostnameRegex.IsMatch(host);
+
+    private static bool IsListenerState(string state)
     {
+        var s = state.ToUpperInvariant();
+        foreach (var p in NonUserStatePrefixes)
+            if (s.StartsWith(p, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    public static async Task<List<SessionInfo>> QueryAsync(
+        string server, CancellationToken ct = default)
+    {
+        if (!IsValidHost(server))
+            throw new ArgumentException(
+                "Invalid hostname. Use letters, digits, dots, or hyphens only.",
+                nameof(server));
+
         var args = IsLocal(server) ? "session" : $"session /server:{server}";
 
         var psi = new ProcessStartInfo("query", args)
@@ -35,7 +75,17 @@ public static class SessionQueryService
         // Read stdout and stderr concurrently to avoid deadlocks on large output
         var stdoutTask = proc.StandardOutput.ReadToEndAsync();
         var stderrTask = proc.StandardError.ReadToEndAsync();
-        await proc.WaitForExitAsync();
+
+        try
+        {
+            await proc.WaitForExitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { /* best effort */ }
+            throw new TimeoutException(
+                "Server did not respond in time. Check connectivity and firewall rules.");
+        }
 
         var output = await stdoutTask;
         var stderr = await stderrTask;
@@ -63,13 +113,19 @@ public static class SessionQueryService
 
             // Strip leading '>' marker that query.exe uses for the current session
             var sessionName = m.Groups[1].Value.TrimStart('>');
+            var username    = m.Groups[2].Value;
+            var state       = m.Groups[4].Value;
+
+            // Hide rdp-tcp listener and equivalents — not shadowable, just noise.
+            if (string.IsNullOrEmpty(username) && IsListenerState(state))
+                continue;
 
             sessions.Add(new SessionInfo
             {
                 SessionName = sessionName,
-                Username    = m.Groups[2].Value,
+                Username    = username,
                 Id          = m.Groups[3].Value,
-                State       = m.Groups[4].Value,
+                State       = state,
             });
         }
 

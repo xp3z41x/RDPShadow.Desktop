@@ -1,0 +1,30 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{xml,xaml,csproj,manifest}]
+indent_size = 2
+
+[*.{md,yml,yaml,json}]
+indent_size = 2
+
+[*.cs]
+# Prefer 'var' where the type is obvious from the right-hand side
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_for_built_in_types = true:suggestion
+
+# Expression-bodied members for trivial cases
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+
+# Require braces for all control flow (safety)
+csharp_prefer_braces = false:silent
+
+# Namespace style
+csharp_style_namespace_declarations = file_scoped:suggestion

@@ -10,6 +10,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
+    <!-- Product / version metadata -->
+    <Version>2.0.1</Version>
+    <AssemblyVersion>2.0.1.0</AssemblyVersion>
+    <FileVersion>2.0.1.0</FileVersion>
+    <Product>RDP Shadow</Product>
+    <Company>xp3z41x</Company>
+    <Copyright>Copyright (c) 2026 xp3z41x</Copyright>
+    <AssemblyTitle>RDP Shadow</AssemblyTitle>
+    <Description>Windows RDP session shadowing tool with Fluent Design acrylic UI.</Description>
+
+    <!-- Reproducible build -->
+    <Deterministic>true</Deterministic>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
     <!-- Single-file self-contained publish -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
