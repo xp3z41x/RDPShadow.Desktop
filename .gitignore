@@ -1,0 +1,15 @@
+# Build outputs
+publish/
+src/*.o
+tools/icon-preview.png
+
+# Editors
+.vs/
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.user
+
+# OS
+Thumbs.db
+desktop.ini

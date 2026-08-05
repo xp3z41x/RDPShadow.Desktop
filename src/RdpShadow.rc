@@ -1,0 +1,25 @@
+1 24 "app.manifest"
+
+// App icon. Lowest-ID group icon becomes the .exe's Explorer/desktop icon.
+1 ICON "app.ico"
+
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "RDP Shadow"
+      VALUE "FileVersion",     "1.0.0.0"
+      VALUE "ProductName",     "RDP Shadow"
+      VALUE "ProductVersion",  "1.0.0.0"
+      VALUE "OriginalFilename","RdpShadow.exe"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
